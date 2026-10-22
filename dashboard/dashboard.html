@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExtensionLedger - Browser Extension Security Intelligence</title>
+  <link rel="stylesheet" href="./dashboard.css">
+  <link rel="icon" type="image/png" href="../icons/icon-48.png">
+</head>
+<body class="theme-graphite">
+  <!-- Top Command & Security Bar -->
+  <header class="app-topbar">
+    <div class="topbar-brand">
+      <div class="brand-crest">
+        <img src="../icons/icon-48.png" alt="ExtensionLedger Shield" class="crest-icon" width="24" height="24">
+      </div>
+      <div class="brand-info">
+        <div class="brand-title-row">
+          <h1 class="brand-title">ExtensionLedger</h1>
+          <span id="environmentTag" class="platform-tag">Initializing...</span>
+        </div>
+        <span class="brand-desc">Browser Extension Security Intelligence &amp; Drift Auditor</span>
+      </div>
+    </div>
+
+    <!-- Active Telemetry & Environment Ticker -->
+    <div class="security-ticker">
+      <div class="ticker-item">
+        <span class="ticker-label">Watchlist</span>
+        <span id="tickerWatchlistCount" class="ticker-value">0</span>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-item">
+        <span class="ticker-label">Pending Drift</span>
+        <span id="tickerPendingCount" class="ticker-value text-amber">0</span>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-item" title="Extensions with concrete suspicious behavioral or package indicators">
+        <span class="ticker-label">Suspicious</span>
+        <span id="tickerSuspiciousCount" class="ticker-value text-rose">0</span>
+        <span id="tickerHighRiskCount" style="display: none;">0</span>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-item" title="Extensions with extensive architectural blast radius">
+        <span class="ticker-label">Extensive Blast Radius</span>
+        <span id="tickerExtensiveCount" class="ticker-value" style="color: #C084FC;">0</span>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-item">
+        <span class="ticker-label">Baseline State</span>
+        <span id="tickerBaselineStatus" class="ticker-value text-cyan">Baseline not created</span>
+      </div>
+    </div>
+
+    <!-- Top Action Controls -->
+    <div class="topbar-actions">
+      <button id="btnCaptureBaseline" class="btn-ctrl btn-baseline" title="Record current extension inventory as verified baseline">
+        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+        <span>Capture Baseline</span>
+      </button>
+
+      <button id="btnManageBaselines" class="btn-ctrl btn-ghost" title="View snapshot history, verify SHA-256 integrity, or switch active baseline">
+        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+        <span>Baselines</span>
+      </button>
+
+      <button id="btnExportImport" class="btn-ctrl btn-ghost" title="Export JSON audit dossiers, Markdown reports, CSV spreadsheets, or restore snapshots">
+        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        <span>Export &amp; Report</span>
+      </button>
+
+      <button id="btnScanRefresh" class="btn-ctrl btn-scan" title="Re-query browser extension inventory">
+        <svg class="btn-icon spin-icon" width="14" height="14" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        <span>Scan Now</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Standalone Web Context Notice Banner -->
+  <div id="standaloneContextBanner" class="context-banner" style="display: none;">
+    <div class="banner-content">
+      <svg class="banner-icon" width="18" height="18" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <div>
+        <strong id="standaloneBannerTitle">Running Outside Extension Context</strong>
+        <p id="standaloneBannerText">Direct extension inspection requires Chrome or Edge with ExtensionLedger loaded as an unpacked extension. Open <code>chrome://extensions</code> or <code>edge://extensions</code>, enable Developer Mode, and click "Load unpacked" pointing to this directory.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Operational Notice Bar -->
+  <div id="generalNoticeBanner" class="general-notice" style="display: none;">
+    <span id="generalNoticeMsg"></span>
+    <button id="btnCloseGeneralNotice" class="btn-close-notice">&times;</button>
+  </div>
+
+  <!-- Navigation Bar -->
+  <nav class="app-nav">
+    <div class="nav-container">
+      <button class="nav-link active" data-tab="tab-watchlist">
+        <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        <span>Extension Watchlist</span>
+        <span id="navWatchlistBadge" class="nav-pill">0</span>
+      </button>
+
+      <button class="nav-link" data-tab="tab-intelligence">
+        <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+        <span>Change Intelligence</span>
+        <span id="navTimelineBadge" class="nav-pill">0 Events</span>
+      </button>
+
+      <button class="nav-link" data-tab="tab-investigation">
+        <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm1 10h-2v-4h2v4z"/></svg>
+        <span>Security Investigation</span>
+        <span id="navInvestigationBadge" class="nav-pill pill-alert" style="display: none;">0</span>
+      </button>
+
+      <button class="nav-link" data-tab="tab-diff-explorer">
+        <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        <span>Version Diff Explorer</span>
+      </button>
+
+      <button class="nav-link" data-tab="tab-package-analyzer">
+        <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+        <span>Package Analyzer</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Viewports -->
+  <main class="app-main">
+    <!-- SECTION A: EXTENSION WATCHLIST -->
+    <section id="tab-watchlist" class="panel-section active">
+      <div class="panel-header-row">
+        <div>
+          <h2 class="panel-title">Extension Watchlist</h2>
+          <p class="panel-sub">Active extensions with verified publisher attribution, declared capabilities, and last observed security state.</p>
+        </div>
+        <div class="panel-ctrls">
+          <input type="text" id="watchlistSearchInput" class="filter-input" placeholder="Filter by name, ID, or permission...">
+          <select id="watchlistScopeFilter" class="filter-select">
+            <option value="ALL">All Website Scopes</option>
+            <option value="ALL_URLS">All Websites (&lt;all_urls&gt;)</option>
+            <option value="SPECIFIC">Specific Domains Only</option>
+            <option value="NONE">No Web Access</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Master-Detail Split Workspace -->
+      <div class="watchlist-split">
+        <!-- Extension Items List -->
+        <div class="watchlist-roster" id="watchlistRoster">
+          <!-- Dynamically populated with real extension items -->
+        </div>
+
+        <!-- Selected Extension Dossier Detail Panel -->
+        <div class="watchlist-dossier" id="watchlistDossier">
+          <div class="dossier-placeholder">
+            <svg class="placeholder-icon" width="40" height="40" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            <h4>Select an Extension</h4>
+            <p>Select any extension on the left to view its publisher attribution, full permission breakdown, and chronological event ledger.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION B: CHANGE INTELLIGENCE TIMELINE -->
+    <section id="tab-intelligence" class="panel-section">
+      <div class="panel-header-row">
+        <div>
+          <h2 class="panel-title">Change Intelligence Timeline</h2>
+          <p class="panel-sub">Chronological event ledger tracking version updates, permission expansions, installations, and status transitions.</p>
+        </div>
+        <div class="panel-ctrls">
+          <select id="timelineSeverityFilter" class="filter-select">
+            <option value="ALL">All Severities</option>
+            <option value="CRITICAL">Critical</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+            <option value="INFO">Info / Metadata</option>
+          </select>
+          <select id="timelineReviewFilter" class="filter-select">
+            <option value="ALL">All Event States</option>
+            <option value="PENDING">Pending Investigation</option>
+            <option value="REVIEWED">Reviewed Only</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Timeline Stream Visualization -->
+      <div class="timeline-stream-container" id="timelineStreamContainer">
+        <!-- Dynamically injected timeline items -->
+      </div>
+    </section>
+
+    <!-- SECTION D: SECURITY INVESTIGATION -->
+    <section id="tab-investigation" class="panel-section">
+      <div class="panel-header-row">
+        <div>
+          <h2 class="panel-title">Security Investigation Center</h2>
+          <p class="panel-sub">Structured, evidence-backed security findings explaining observed drift, system blind spots, and analyst next steps.</p>
+        </div>
+        <div class="panel-ctrls">
+          <select id="investigationSeverityFilter" class="filter-select">
+            <option value="ALL">All Severities</option>
+            <option value="CRITICAL">Critical Risk</option>
+            <option value="HIGH">High Exposure</option>
+            <option value="MEDIUM">Medium Exposure</option>
+            <option value="LOW">Low / Routine</option>
+            <option value="INFO">Informational</option>
+          </select>
+          <select id="investigationStatusFilter" class="filter-select">
+            <option value="PENDING">Pending Review</option>
+            <option value="ALL">All Findings</option>
+            <option value="REVIEWED">Reviewed Findings</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Investigation Split Workspace -->
+      <div class="investigation-split">
+        <!-- Findings Roster -->
+        <div class="findings-roster" id="findingsRoster">
+          <!-- Dynamically populated finding cards -->
+        </div>
+
+        <!-- In-Depth Investigation Dossier -->
+        <div class="finding-dossier" id="findingDossier">
+          <div class="dossier-placeholder">
+            <svg class="placeholder-icon" width="40" height="40" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <h4>Select an Investigation Finding</h4>
+            <p>Pick a security finding on the left to review what changed, which version introduced it, security reasoning, system limitations, and next steps.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION C: VERSION DIFF EXPLORER -->
+    <section id="tab-diff-explorer" class="panel-section">
+      <div class="panel-header-row">
+        <div>
+          <h2 class="panel-title">Version Diff Explorer</h2>
+          <p class="panel-sub">Side-by-side comparison of baseline vs current extension states, manifest declarations, file differences, and network endpoints.</p>
+        </div>
+        <div class="panel-ctrls">
+          <label for="diffExtensionSelect" class="ctrl-label">Extension:</label>
+          <select id="diffExtensionSelect" class="filter-select select-wide"></select>
+        </div>
+      </div>
+
+      <div class="diff-explorer-container">
+        <!-- Manifest Difference Visualizer -->
+        <div class="diff-card">
+          <div class="diff-card-header">
+            <span class="diff-card-title">Manifest &amp; Permission Structure Comparison</span>
+            <div id="diffVersionMeta" class="diff-version-tag">Baseline vs Current</div>
+          </div>
+          <div class="manifest-diff-grid">
+            <div class="diff-col">
+              <div class="diff-col-header">Baseline State</div>
+              <pre class="diff-code-view" id="diffManifestBefore"></pre>
+            </div>
+            <div class="diff-col">
+              <div class="diff-col-header">Current Observed State</div>
+              <pre class="diff-code-view" id="diffManifestAfter"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Network Destination Map (Rendered when destination data is available) -->
+        <div class="diff-card">
+          <div class="diff-card-header">
+            <span class="diff-card-title">Observed Network Destinations &amp; Host Scope</span>
+            <span id="networkEndpointCountBadge" class="badge-pill">0 Destinations</span>
+          </div>
+          <div class="network-graph-canvas" id="networkGraphCanvas">
+            <!-- Dynamically populated network graph nodes or empty notification -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION E: PACKAGE ANALYZER -->
+    <section id="tab-package-analyzer" class="panel-section">
+      <div class="panel-header-row">
+        <div>
+          <h2 class="panel-title">Local Package ZIP Analyzer</h2>
+          <p class="panel-sub">Perform client-side static security analysis on extension packages (.zip/.crx). Inspect files and code patterns without executing code.</p>
+        </div>
+        <div class="panel-ctrls">
+          <button id="btnLoadFixturePackages" class="btn-ctrl btn-ghost">
+            Load Pre-Built Test Fixture
+          </button>
+        </div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="analyzer-toolbar">
+        <div class="mode-switch">
+          <button class="mode-tab active" data-mode="compare">Compare Two Versions (v1 &rarr; v2)</button>
+          <button class="mode-tab" data-mode="single">Inspect Single Package (.zip)</button>
+        </div>
+      </div>
+
+      <!-- Drop Zones -->
+      <div class="package-drop-grid">
+        <div class="package-drop-box" id="pkgDropA">
+          <div class="drop-icon-wrap">
+            <svg width="36" height="36" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+          </div>
+          <h4 class="drop-box-title" id="pkgDropTitleA">Baseline Package (v1.zip)</h4>
+          <span class="drop-box-sub">Click or drag &amp; drop extension ZIP</span>
+          <input type="file" id="pkgFileInputA" accept=".zip,.crx" style="display: none;">
+          <div id="pkgFileNameA" class="file-tag" style="display: none;"></div>
+        </div>
+
+        <div class="package-drop-box" id="pkgDropB">
+          <div class="drop-icon-wrap">
+            <svg width="36" height="36" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+          </div>
+          <h4 class="drop-box-title" id="pkgDropTitleB">Target Package (v2.zip)</h4>
+          <span class="drop-box-sub">Click or drag &amp; drop extension ZIP</span>
+          <input type="file" id="pkgFileInputB" accept=".zip,.crx" style="display: none;">
+          <div id="pkgFileNameB" class="file-tag" style="display: none;"></div>
+        </div>
+      </div>
+
+      <!-- Analyst Custom Detection Rule Box -->
+      <div class="custom-rule-container" style="margin-top: 16px; margin-bottom: 8px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span style="font-size: 0.82rem; font-weight: 600; color: var(--accent-cyan);">Analyst Custom Pattern Rule (Regex Heuristics):</span>
+          <span style="font-size: 0.72rem; color: var(--text-dim);">Optional: apply custom regex signatures (e.g. C2 domains, webhooks)</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="pkgCustomRuleRegex" class="filter-input" style="flex: 2;" placeholder="Regex pattern (e.g. corp-internal\.com|api\.telegram\.org)">
+          <input type="text" id="pkgCustomRuleDesc" class="filter-input" style="flex: 2;" placeholder="Rule description / analyst tag">
+        </div>
+      </div>
+
+      <div class="pkg-action-bar">
+        <button id="btnRunPackageAnalysis" class="btn-execute-analysis" disabled>
+          Execute In-Memory Package Analysis
+        </button>
+      </div>
+
+      <!-- Analysis Results Container -->
+      <div id="pkgAnalysisResultsArea" class="pkg-results-container" style="display: none;">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: REVIEW EXTENSION & SECURITY AUDIT DOSSIER -->
+  <!-- ==================================================================== -->
+  <div id="reviewDetailModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-identity">
+          <img id="reviewModalIcon" class="modal-icon" src="../icons/icon-48.png" alt="">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 id="reviewModalTitle" class="modal-title">Review Extension</h3>
+              <span id="reviewModalOriginBadge" class="badge-pill info">Live Scan</span>
+            </div>
+            <div id="reviewModalSub" class="modal-sub">ID: ... &bull; v1.0.0</div>
+          </div>
+        </div>
+        <button id="btnCloseReviewModal" class="modal-close-btn" title="Close Review">&times;</button>
+      </div>
+
+      <div class="modal-body" id="reviewModalBody">
+        <!-- Review State Banner -->
+        <div class="review-status-banner">
+          <div class="review-status-info">
+            <span class="review-status-label">Review Status:</span>
+            <span id="reviewModalStatusBadge" class="badge-pill high">Pending Review</span>
+            <span id="reviewModalTimestamp" class="review-status-time">Not yet reviewed</span>
+          </div>
+          <button id="btnModalToggleReview" class="btn-cyan-solid">
+            Mark as Reviewed
+          </button>
+        </div>
+        <p class="review-disclaimer-note">
+          <svg width="14" height="14" viewBox="0 0 24 24" style="vertical-align: -2px; fill: var(--text-muted);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          Review status is stored locally for audit workflows. Reviewing an item does not reduce its calculated risk severity or mark the extension as safe.
+        </p>
+
+        <!-- Permissions & Web Access Scope -->
+        <div class="modal-section">
+          <div class="modal-section-title">Declared Permissions &amp; Website Access Scope</div>
+          <div class="modal-grid-two">
+            <div class="modal-metric-box">
+              <span class="metric-label">Website Scope</span>
+              <span id="reviewModalScope" class="metric-value text-rose">All Websites</span>
+            </div>
+            <div class="modal-metric-box">
+              <span class="metric-label">Installation Source</span>
+              <span id="reviewModalInstallType" class="metric-value">normal</span>
+            </div>
+          </div>
+          <div style="margin-top: 10px;">
+            <div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 4px;">Privileged API Permissions:</div>
+            <div id="reviewModalApiChips" class="chips-cloud"></div>
+          </div>
+          <div style="margin-top: 10px;">
+            <div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 4px;">Declared Host Permissions:</div>
+            <div id="reviewModalHostChips" class="chips-cloud"></div>
+          </div>
+        </div>
+
+        <!-- Baseline vs Current Differences -->
+        <div class="modal-section">
+          <div class="modal-section-title">Baseline vs. Current Differences</div>
+          <div id="reviewModalDiffContent" class="modal-content-box">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Security Findings & Supporting Evidence -->
+        <div class="modal-section">
+          <div class="modal-section-title">Security Findings &amp; Supporting Evidence</div>
+          <div id="reviewModalFindingsContent">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Uncertainty Statement & System Boundaries -->
+        <div class="modal-section">
+          <div class="modal-section-title">Uncertainty Statement &amp; System Blind Spots</div>
+          <div class="blindspot-box" id="reviewModalUncertainty">
+            Client-side inspection cannot evaluate encrypted runtime HTTPS payloads or dynamic payloads retrieved over established WebSockets.
+          </div>
+        </div>
+
+        <!-- Recommended Analyst Actions -->
+        <div class="modal-section">
+          <div class="modal-section-title">Recommended Actions &amp; Next Steps</div>
+          <ol id="reviewModalRecommendations" class="recommendations-ol"></ol>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div id="reviewModalUninstallSlot" style="display: flex; gap: 8px;">
+          <button id="btnReviewModalUninstall" class="btn-danger-ghost">
+            Uninstall Extension...
+          </button>
+          <button id="btnModalToggleAllowlist" class="btn-ghost">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <span id="btnModalAllowlistText">Trust / Allowlist</span>
+          </button>
+        </div>
+        <button id="btnReviewModalDone" class="btn-ghost">
+          Close Review
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: BASELINE SNAPSHOT MANAGER & INTEGRITY VERIFICATION -->
+  <!-- ==================================================================== -->
+  <div id="baselineManagerModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-identity">
+          <div class="brand-crest" style="width: 32px; height: 32px; background: rgba(6, 182, 212, 0.15); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--accent-cyan)"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          </div>
+          <div>
+            <h3 class="modal-title">Baseline Snapshot Manager</h3>
+            <span class="modal-sub">Verified baseline checkpoints &amp; cryptographic integrity hashes</span>
+          </div>
+        </div>
+        <button id="btnCloseBaselineModal" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="baselineManagerActiveCard" class="card-glass" style="padding: 14px; margin-bottom: 16px; border: 1px solid rgba(6, 182, 212, 0.3);">
+          <!-- Active Baseline Details -->
+        </div>
+
+        <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 8px;">
+          Saved Baseline History Checkpoints
+        </div>
+        <div id="baselineHistoryList" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto;">
+          <!-- Baseline history items -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnBaselineModalCaptureNew" class="btn-cyan-solid">
+          Capture New Checkpoint
+        </button>
+        <button id="btnCloseBaselineModalDone" class="btn-ghost">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL: INCIDENT RESPONSE EXPORT & REPORTING -->
+  <!-- ==================================================================== -->
+  <div id="exportImportModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-window modal-window-sm">
+      <div class="modal-header">
+        <div class="modal-identity">
+          <div class="brand-crest" style="width: 32px; height: 32px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#34D399"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          </div>
+          <div>
+            <h3 class="modal-title">Export &amp; Reporting Center</h3>
+            <span class="modal-sub">Security compliance reports &amp; snapshot portability</span>
+          </div>
+        </div>
+        <button id="btnCloseExportModal" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="btnDownloadJsonDossier" class="btn-cyan-solid" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;">
+          <span>Export Machine-Readable Audit Dossier</span>
+          <code style="font-size: 0.72rem; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">.JSON</code>
+        </button>
+
+        <button id="btnDownloadMarkdownReport" class="btn-ghost" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-color: rgba(255,255,255,0.15);">
+          <span>Export Human-Readable Security Report</span>
+          <code style="font-size: 0.72rem; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">.MD</code>
+        </button>
+
+        <button id="btnDownloadCsvReport" class="btn-ghost" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-color: rgba(255,255,255,0.15);">
+          <span>Export Inventory &amp; Findings Spreadsheet</span>
+          <code style="font-size: 0.72rem; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">.CSV</code>
+        </button>
+
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); margin: 8px 0; padding-top: 10px;">
+          <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-dim); display: block; margin-bottom: 6px;">Restore / Portability:</span>
+          <input type="file" id="importDossierFileInput" accept=".json" style="display: none;">
+          <button id="btnTriggerImportDossier" class="btn-ghost" style="width: 100%; border-style: dashed;">
+            Import &amp; Restore Baseline Dossier (.json)
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnCloseExportModalDone" class="btn-ghost">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "extensionledger",
+  "version": "1.0.0",
+  "description": "Browser extension security auditing and change detection system for Google Chrome and Edge",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "cybersecurity",
+    "chrome-extension",
+    "browser-security",
+    "audit",
+    "change-detection"
+  ],
+  "author": "ExtensionLedger Team",
+  "license": "Apache-2.0"
+}
